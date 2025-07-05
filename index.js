@@ -1,61 +1,79 @@
 import express from 'express';
 import authRouters from './src/routers/authRoutes.js'
-// const http = require('http');
-// const WebSocket = require('ws');
-// const path = require('path');
-// const { type } = require('os');
+import chatRoutes from './src/routers/chatRoutes.js'
+import mesageRoutes from './src/routers/messageRouters.js'
+import http from 'http';
+import {WebSocketServer} from 'ws';
+import { saveMessage } from './src/controllers/messageController.js';
 
 const app = express();
 app.use(express.json());
 
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+const chatRooms = new Map();
+
 app.use('/auth', authRouters);
+app.use('/chat', chatRoutes);
+app.use('/chat', mesageRoutes)
 
-// // Create HTTP server by passing the Express app
-// const server = http.createServer(app);
+wss.on('connection', (client) => {
+    console.log('A user connected');
 
-// // Integrate WebSocket with the HTTP server
-// const wss = new WebSocket.Server({ server });
+    client.on('message', async (rawMessage) => {
+        try {
+            const message = JSON.parse(rawMessage);
 
-// // Array to keep track of all connected clients
-// const clients = [];
+            if (message.type === 'joinToChat'){
+                const {chat_id} = message;
+                if (!chatRooms.has(chat_id)) {
+                    chatRooms.set(chat_id, new Set());
+                }
+                chatRooms.get(chat_id).add(client);
+                console.log(`User joined chat:`, chat_id);
+            }
+            else if (message.type === 'sendMessage') {
+                const { chat_id, sender_id, content } = message.message;
+                const room = chatRooms.get(chat_id);
+                if (!room) {
+                    throw new Error(`Chat ${chat_id} not found`);
+                }
 
-// wss.on('connection', function connection(ws) {
-//     console.log("WS connection arrived");
+                const savedMsg = await saveMessage(chat_id, sender_id, content);
+                const response = JSON.stringify({
+                    type: 'newMessage',
+                    message: savedMsg
+                });
+                
+                chatRooms.get(chat_id).forEach((client) => {
+                    client.send(response);
+                });
+            }
+        } catch (error) {
+            console.error('WS Error:', error);
+            client.send(JSON.stringify({
+                type: 'error',
+                message: error.message
+            }));
+        }
+    });
 
-//     // Add the new connection to our list of clients
-//     clients.push(ws);
+    client.on('close', () => {
+    console.log('User disconnected');
+    
+    chatRooms.forEach((users, chatId) => {
+      if (users.has(client)) {
+        users.delete(client);
 
-//     ws.on('message', function incoming(message) {
-//         console.log('received: %s', message);
-
-//         // Broadcast the message to all clients
-//         clients.forEach(client => {
-//             if (client.readyState === WebSocket.OPEN) {
-//                 console.log("message",message.toString())
-//                 client.send(JSON.stringify({
-//                     type: message, 
-//                     data: message.toString()
-//                 }));
-//             }
-//         });
-//     });
-
-//     ws.on('close', () => {
-//         // Remove the client from the array when it disconnects
-//         const index = clients.indexOf(ws);
-//         if (index > -1) {
-//             clients.splice(index, 1);
-//         }
-//     });
-
-//     // Send a welcome message on new connection
-//     ws.send(JSON.stringify({
-//         type: 'message', 
-//         data:'Welcome to the chat!'
-//     }));
-// });
+        if (users.size === 0) {
+          chatRooms.delete(chatId);
+        }
+      }
+    });
+  });
+});
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
