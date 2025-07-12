@@ -4,7 +4,8 @@ import chatRoutes from './src/routers/chatRoutes.js'
 import mesageRoutes from './src/routers/messageRouters.js'
 import http from 'http';
 import {WebSocketServer} from 'ws';
-import { saveMessage } from './src/controllers/messageController.js';
+import { deleteMessage, saveMessage } from './src/controllers/messageController.js';
+import { type } from 'os';
 
 const app = express();
 app.use(express.json());
@@ -15,7 +16,7 @@ const chatRooms = new Map();
 
 app.use('/auth', authRouters);
 app.use('/chat', chatRoutes);
-app.use('/chat', mesageRoutes)
+app.use('/message', mesageRoutes)
 
 wss.on('connection', (client) => {
     console.log('A user connected');
@@ -31,8 +32,7 @@ wss.on('connection', (client) => {
                 }
                 chatRooms.get(chat_id).add(client);
                 console.log(`User joined chat:`, chat_id);
-            }
-            else if (message.type === 'sendMessage') {
+            } else if (message.type === 'sendMessage') {
                 const { chat_id, sender_id, content } = message.message;
                 const room = chatRooms.get(chat_id);
                 if (!room) {
@@ -44,7 +44,20 @@ wss.on('connection', (client) => {
                     type: 'newMessage',
                     message: savedMsg
                 });
+
+                console.log(response);
                 
+                chatRooms.get(chat_id).forEach((client) => {
+                    client.send(response);
+                });
+            } else if (message.type === 'deleteMessage'){
+                const {message_id, chat_id} = message;
+                const deletedMessage = await deleteMessage(message_id);
+                const response = JSON.stringify({
+                    type: 'deletedMessage',
+                    message: deletedMessage,
+                });
+                console.log(response);
                 chatRooms.get(chat_id).forEach((client) => {
                     client.send(response);
                 });

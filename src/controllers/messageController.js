@@ -25,8 +25,23 @@ export const saveMessage = async (chatId, senderId, content) => {
             VALUES ($1, $2, $3)
             RETURNING *
             `, [chatId, senderId, content]);
+
         return result.rows[0];
     } catch (error) {
         throw new Error('Failed to save message')
+    }
+}
+
+export const deleteMessage = async (messageId) => {
+    try {
+        const result = await pool.query(`
+            DELETE FROM messages
+            WHERE id = $1
+            RETURNING id
+            `, [messageId]);
+
+        return result.rows[0];
+    } catch (error) {
+       throw new Error('Failed to delete message');
     }
 }
