@@ -33,3 +33,17 @@ export const getLastMessage = async (req, res) => {
     }
 }
 
+export const createChat = async (req, res) => {
+    const {participant_one_id, participant_two_id} = req.body;
+    try {
+        await pool.query(
+            'call create_chat($1, $2)',
+            [participant_one_id, participant_two_id]
+        );
+
+        res.status(201).json({message: 'Succesfully'});
+    } catch (error) {
+        res.status(500).json({error: 'Failed to create chat'});
+    }
+}
+

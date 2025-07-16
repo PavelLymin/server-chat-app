@@ -2,10 +2,10 @@ import express from 'express';
 import authRouters from './src/routers/authRoutes.js'
 import chatRoutes from './src/routers/chatRoutes.js'
 import mesageRoutes from './src/routers/messageRouters.js'
+import userRoutes from './src/routers/userRoutes.js'
 import http from 'http';
 import {WebSocketServer} from 'ws';
 import { deleteMessage, saveMessage } from './src/controllers/messageController.js';
-import { type } from 'os';
 
 const app = express();
 app.use(express.json());
@@ -17,6 +17,7 @@ const chatRooms = new Map();
 app.use('/auth', authRouters);
 app.use('/chat', chatRoutes);
 app.use('/message', mesageRoutes)
+app.use('/', userRoutes);
 
 wss.on('connection', (client) => {
     console.log('A user connected');
@@ -44,8 +45,6 @@ wss.on('connection', (client) => {
                     type: 'newMessage',
                     message: savedMsg
                 });
-
-                console.log(response);
                 
                 chatRooms.get(chat_id).forEach((client) => {
                     client.send(response);
@@ -57,7 +56,7 @@ wss.on('connection', (client) => {
                     type: 'deletedMessage',
                     message: deletedMessage,
                 });
-                console.log(response);
+
                 chatRooms.get(chat_id).forEach((client) => {
                     client.send(response);
                 });

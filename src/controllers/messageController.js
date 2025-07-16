@@ -19,7 +19,6 @@ export const fetchAllMessagesByChatId = async (req, res) => {
 
 export const saveMessage = async (chatId, senderId, content) => {
     try {
-        console.log(`${chatId}, ${senderId}, ${content}`);
         const result = await pool.query(`
             INSERT INTO messages (chat_id, sender_id, content)
             VALUES ($1, $2, $3)
